@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Книги — CRUD</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    .form-container { margin: 20px 0; }
+    button { margin-right: 5px; }
+  </style>
+</head>
+<body>
+
+<h1>Книжная полка (CRUD + REST API)</h1>
+
+<div class="form-container">
+  <input id="bookId" type="hidden">
+  <input id="title" placeholder="Название" required>
+  <input id="author" placeholder="Автор">
+  <input id="year" type="number" placeholder="Год">
+  <button onclick="createOrUpdateBook()">Сохранить</button>
+  <button onclick="clearForm()">Очистить</button>
+</div>
+
+<table id="booksTable">
+  <thead>
+    <tr><th>ID</th><th>Название</th><th>Автор</th><th>Год</th><th>Действия</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const API_URL = 'http://127.0.0.1:5000/api/books';
+
+async function loadBooks() {
+  const res = await fetch(API_URL);
+  const books = await res.json();
+  
+  const tbody = document.querySelector('#booksTable tbody');
+  tbody.innerHTML = '';
+  
+  books.forEach(book => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${book.id}</td>
+      <td>${book.title}</td>
+      <td>${book.author}</td>
+      <td>${book.year || '-'}</td>
+      <td>
+        <button onclick="editBook(${book.id})">✏️</button>
+        <button onclick="deleteBook(${book.id})">🗑️</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function createOrUpdateBook() {
+  const id = document.getElementById('bookId').value;
+  const title = document.getElementById('title').value.trim();
+  const author = document.getElementById('author').value.trim();
+  const year = document.getElementById('year').value;
+
+  if (!title) {
+    alert('Название — обязательно!');
+    return;
+  }
+
+  const book = { title, author, year: year ? Number(year) : null };
+
+  let res;
+  if (id) {
+    // UPDATE
+    res = await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(book)
+    });
+  } else {
+    // CREATE
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(book)
+    });
+  }
+
+  if (res.ok) {
+    clearForm();
+    loadBooks();
+  } else {
+    const err = await res.json();
+    alert(err.error || 'Ошибка');
+  }
+}
+
+async function deleteBook(id) {
+  if (!confirm('Удалить книгу?')) return;
+  
+  const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+  if (res.ok) {
+    loadBooks();
+  }
+}
+
+function editBook(id) {
+  fetch(`${API_URL}/${id}`)
+    .then(res => res.json())
+    .then(book => {
+      document.getElementById('bookId').value = book.id;
+      document.getElementById('title').value = book.title;
+      document.getElementById('author').value = book.author;
+      document.getElementById('year').value = book.year || '';
+    });
+}
+
+function clearForm() {
+  document.getElementById('bookId').value = '';
+  document.getElementById('title').value = '';
+  document.getElementById('author').value = '';
+  document.getElementById('year').value = '';
+}
+
+window.onload = loadBooks;
+</script>
+</body>
+</html>
